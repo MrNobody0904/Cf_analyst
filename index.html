@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CF Analytics — Codeforces Profile Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+</head>
+<body>
+
+  <header class="header">
+    <div class="logo-mark">CF</div>
+    <div>
+      <div class="header-title">cf.analytics</div>
+      <div class="header-sub">Competitive Programming Statics</div>
+    </div>
+    <button class="settings-toggle" onclick="toggleSettings()" id="settingsToggle">
+      <span class="settings-dot" id="settingsDot"></span>
+      ⚙ API Settings
+    </button>
+  </header>
+
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-box">
+      <div class="settings-title">
+        🔑 Codeforces API Credentials
+        <span style="color:var(--green); font-size:11px;" id="savedLabel"></span>
+      </div>
+      <div class="settings-row">
+        <div class="settings-field">
+          <label>API Key</label>
+          <input type="password" id="cfApiKey" placeholder="Paste your API key here" autocomplete="off">
+        </div>
+        <div class="settings-field">
+          <label>API Secret</label>
+          <input type="password" id="cfApiSecret" placeholder="Paste your API secret here" autocomplete="off">
+        </div>
+      </div>
+      <div class="settings-actions">
+        <button class="btn-save" onclick="saveApiCredentials()">Save credentials</button>
+        <button class="btn-clear" onclick="clearApiCredentials()">Clear</button>
+        <span class="settings-status" id="settingsStatus"></span>
+      </div>
+      <div class="settings-note">
+        🔒 Your key and secret are stored only in this browser tab's memory — never sent anywhere except Codeforces.<br>
+        Get your credentials at <span style="color:var(--accent);">codeforces.com/settings/api</span>
+      </div>
+    </div>
+  </div>
+
+  <section id="searchSection" class="search-wrap">
+    <div class="search-headline">// handle lookup</div>
+    <h1 class="search-title">Decode Your CP Journey</h1>
+    <p class="search-desc">Enter any Codeforces handle to instantly visualize solving patterns, strengths, and progress.</p>
+    <div class="search-row">
+      <span class="search-prefix">cf.com/</span>
+      <input id="handleInput" type="text" placeholder="tourist" autocomplete="off" autocorrect="off" spellcheck="false">
+      <button class="btn-analyze" id="analyzeBtn" onclick="analyze()">Analyze →</button>
+    </div>
+    <div class="error-box" id="errorBox"></div>
+  </section>
+
+  <div id="loadingState">
+    <div class="loading-dots">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    </div>
+    <div class="loading-text">Fetching data for <span class="loading-handle" id="loadingHandle">—</span></div>
+  </div>
+
+  <div id="dashboard">
+
+    <div class="profile-banner">
+      <div class="avatar-ring" id="avatarRing"></div>
+      <div class="profile-meta">
+        <div class="profile-handle" id="profileHandle">—</div>
+        <div class="profile-info">
+          <span id="profileCountry">—</span>
+          <span id="profileOrg">—</span>
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <div class="rank-badge" id="rankBadge">—</div>
+        <div style="text-align:right;">
+          <div style="font-size:11px; color:var(--text3); font-family:var(--mono); margin-bottom:4px;">MAX RATING</div>
+          <div style="font-family:var(--mono); font-size:18px; font-weight:700;" id="maxRating">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="solved-hero">
+      <div class="solved-big" id="totalSolvedBig">0</div>
+      <div class="solved-label-wrap">
+        <div class="solved-label">Problems Solved</div>
+        <div class="solved-sub" id="solvedSubtext">Unique accepted problems across all rounds</div>
+      </div>
+    </div>
+
+    <div class="stats-row" id="statsRow">
+      <div class="stat-card blue">
+        <div class="stat-label">Total Submissions</div>
+        <div class="stat-value" id="statTotal">—</div>
+        <div class="stat-sub">All verdicts</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Accepted</div>
+        <div class="stat-value" id="statAccepted">—</div>
+        <div class="stat-sub">Correct solutions</div>
+      </div>
+      <div class="stat-card amber">
+        <div class="stat-label">Acceptance Rate</div>
+        <div class="stat-value" id="statRate">—</div>
+        <div class="stat-sub">Success ratio</div>
+      </div>
+      <div class="stat-card purple">
+        <div class="stat-label">Hardest Solved</div>
+        <div class="stat-value" id="statHardest">—</div>
+        <div class="stat-sub">Max difficulty</div>
+      </div>
+      <div class="stat-card pink">
+        <div class="stat-label">Avg Difficulty</div>
+        <div class="stat-value" id="statAvg">—</div>
+        <div class="stat-sub">Mean solved rating</div>
+      </div>
+    </div>
+
+    <div class="section-grid" style="margin-bottom:20px;">
+      <div class="insight-card">
+        <div class="insight-icon" style="background: rgba(61,214,140,0.12);">🏆</div>
+        <div>
+          <div class="insight-label">STRONGEST TOPIC</div>
+          <div class="insight-value" id="strongestTopic">—</div>
+          <div class="insight-sub" id="strongestCount">—</div>
+        </div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-icon" style="background: rgba(245,166,35,0.12);">🎯</div>
+        <div>
+          <div class="insight-label">MOST ATTEMPTED TOPIC</div>
+          <div class="insight-value" id="mostAttemptedTopic">—</div>
+          <div class="insight-sub" id="mostAttemptedCount">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-grid">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Solved by Difficulty</div>
+          <div class="panel-badge" id="diffBadge">0 bands</div>
+        </div>
+        <div class="chart-wrap" id="diffChartWrap">
+          <canvas id="diffChart" role="img" aria-label="Bar chart showing problems solved per difficulty rating band"></canvas>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Solved by Topic</div>
+          <div class="panel-badge" id="tagBadge">0 topics</div>
+        </div>
+        <div class="legend-grid" id="tagLegend"></div>
+        <div class="chart-wrap" style="height:240px;">
+          <canvas id="tagChart" role="img" aria-label="Pie chart of solved problems by algorithmic topic"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer class="footer">
+    cf.analytics — data from Codeforces API &nbsp;·&nbsp; read-only, no auth required
+    &nbsp;|&nbsp; Developed by Pranav Raj
+    <a href="https://www.linkedin.com/in/pranav-raj-5a1080318/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+    &nbsp;|&nbsp;
+    <a href="https://github.com/MrNobody0904" target="_blank" rel="noopener noreferrer">GitHub</a>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
