@@ -1,6 +1,6 @@
 const CF_API = 'https://codeforces.com/api';
 
-// In-memory credentials (never persisted to disk)
+// Crednetials
 let CF_KEY = '';
 let CF_SECRET = '';
 
@@ -70,7 +70,7 @@ function clearApiCredentials() {
   document.getElementById('settingsStatus').style.color = 'var(--text2)';
 }
 
-// Build a signed Codeforces API URL using key + secret
+// API URL syncing 
 async function signedUrl(method, params) {
   const time = Math.floor(Date.now() / 1000);
   const rand = Math.floor(100000 + Math.random() * 900000);
@@ -154,7 +154,7 @@ function buildDashboard(user, subs, handle) {
   document.getElementById('loadingState').style.display = 'none';
   document.getElementById('dashboard').style.display = 'block';
 
-  // ── Profile banner ──
+  // profile
   const rank = user.rank || 'unrated';
   const rs = getRankStyle(rank);
   const initials = (user.firstName ? user.firstName[0] : handle[0]).toUpperCase();
@@ -178,11 +178,9 @@ function buildDashboard(user, subs, handle) {
   document.getElementById('maxRating').textContent = user.maxRating ? user.maxRating : '—';
   document.getElementById('maxRating').style.color = rs.color;
 
-  // ── Compute stats ──
+  // stat
   const totalSubs = subs.length;
   const acceptedSubs = subs.filter(s => s.verdict === 'OK');
-
-  // Unique accepted problems (by problem ID)
   const solvedSet = new Map();
   acceptedSubs.forEach(s => {
     const key = s.problem.contestId + '_' + s.problem.index;
@@ -208,7 +206,7 @@ function buildDashboard(user, subs, handle) {
   document.getElementById('statHardest').textContent = hardest || '—';
   document.getElementById('statAvg').textContent = avgDiff || '—';
 
-  // ── Difficulty distribution ──
+  // problem distribution
   const diffBands = {};
   ratedProblems.forEach(p => {
     const band = Math.floor(p.rating / 100) * 100;
@@ -283,13 +281,13 @@ function buildDashboard(user, subs, handle) {
   const tagEntries = Object.entries(tagCounts).sort((a,b)=>b[1]-a[1]);
   document.getElementById('tagBadge').textContent = tagEntries.length + ' topics';
 
-  // Strongest topic
+  // logic for the strong region
   if (tagEntries.length) {
     document.getElementById('strongestTopic').textContent = tagEntries[0][0];
     document.getElementById('strongestCount').textContent = tagEntries[0][1] + ' problems solved';
   }
 
-  // Most attempted (from all AC subs, by tag occurrence)
+ 
   const tagAttempts = {};
   acceptedSubs.forEach(s => {
     if (!s.problem.tags) return;
@@ -315,7 +313,7 @@ function buildDashboard(user, subs, handle) {
   const tagData = tagEntries.map(e => e[1]);
   const tagTotal = tagData.reduce((a,b)=>a+b,0);
 
-  // Build custom legend
+ 
   const legendEl = document.getElementById('tagLegend');
   legendEl.innerHTML = '';
   tagEntries.forEach(([name, count], i) => {
@@ -373,7 +371,7 @@ function diffColor(r) {
   return '#f44747';
 }
 
-// Enter key support
+
 document.getElementById('handleInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') analyze();
 });
