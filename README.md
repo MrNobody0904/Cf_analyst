@@ -1,24 +1,25 @@
-# Cf_analyst
-profile analyzer for Codeforces competitors. Get immediate, visually rich analytics on lookups, solving patterns, tag tracking, and difficulty distribution.
+# CF Analyst
 
+A profile analytics tool for Codeforces competitors that provides instant, visually rich insights into user performance. It analyzes solving patterns, problem tags, difficulty distribution, contest history, and overall progress to help users track and improve their competitive programming journey.
 
+## app.js Flow
 
-
-FLOW CHART OF app.js 
- Parameters
-    ↓
- Create string toHash
-    ↓
- Convert string → bytes
-    ↓
- SHA-512 hash
-    ↓
- Convert hash → hex
-    ↓
- Prepend random number
-    ↓
- apiSig generated
-    ↓
- Return signed URL
-    ↓
- fetch(url)
+Parameters
+↓
+Generate `toHash` string
+↓
+Convert string to bytes
+↓
+Apply SHA-512 hashing
+↓
+Convert hash to hexadecimal format
+↓
+Prepend a random number
+↓
+Generate `apiSig`
+↓
+Create signed API URL
+↓
+`fetch(url)`
+↓
+Process API response
