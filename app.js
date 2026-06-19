@@ -280,6 +280,24 @@ function buildDashboard(user, subs, handle) {
   const solvedMap = buildSolvedMap(acceptedSubs);
   const uniqueSolved = [...solvedMap.values()].map(v => v.problem);
   const totalSolved = uniqueSolved.length;
+
+  // ── TEMP DEBUG: find where problems are getting merged/lost ──
+  console.log('Total accepted submissions:', acceptedSubs.length);
+  console.log('Unique solved (by our key):', totalSolved);
+  const noContestId = acceptedSubs.filter(s => s.problem.contestId === undefined || s.problem.contestId === null);
+  console.log('Accepted subs with NO contestId:', noContestId.length, noContestId.map(s => s.problem.name));
+  // Group by problem NAME instead of key, to see if name-based count differs from key-based count
+  const byName = new Map();
+  acceptedSubs.forEach(s => {
+    const n = s.problem.name;
+    if (!byName.has(n)) byName.set(n, []);
+    byName.get(n).push(problemKey(s.problem));
+  });
+  console.log('Unique solved BY NAME:', byName.size);
+  // Names that map to multiple different keys (would explain over/undercount)
+  const multiKeyNames = [...byName.entries()].filter(([n, keys]) => new Set(keys).size > 1);
+  console.log('Problem names spanning multiple keys:', multiKeyNames);
+  // ── END TEMP DEBUG ──
   const acRate = totalSubs > 0 ? ((acceptedSubs.length / totalSubs) * 100).toFixed(1) : '0.0';
 
   const ratedProblems = uniqueSolved.filter(p => p.rating);
