@@ -70,14 +70,14 @@ function clearApiCredentials() {
   document.getElementById('settingsStatus').style.color = 'var(--text2)';
 }
 
-// API URL syncing 
+// API URL syncing
 async function signedUrl(method, params) {
   const time = Math.floor(Date.now() / 1000);
   const rand = Math.floor(100000 + Math.random() * 900000);
   const allParams = { ...params, apiKey: CF_KEY, time };
   const sorted = Object.keys(allParams).sort().map(k => `${k}=${allParams[k]}`).join('&');
   const toHash = `${rand}/${method}?${sorted}#${CF_SECRET}`;
-  
+
   // SHA-512 via SubtleCrypto
   const msgBuf = new TextEncoder().encode(toHash);
   const hashBuf = await crypto.subtle.digest('SHA-512', msgBuf);
@@ -99,6 +99,26 @@ async function cfFetch(method, params) {
   return res.json();
 }
 
+/**
+ * FIX: fetch ALL submissions, not just the first 10,000.
+ * Most users will never exceed one page, but grinders / long-time
+ * competitive programmers can, and silently truncating drops real
+ * solved problems from the "all time" count.
+ */
+async function fetchAllSubmissions(handle) {
+  const PAGE = 10000;
+  let from = 1;
+  let all = [];
+  while (true) {
+    const data = await cfFetch('user.status', { handle, from, count: PAGE });
+    if (data.status !== 'OK') throw new Error(data.comment || 'Could not fetch submissions');
+    all = all.concat(data.result);
+    if (data.result.length < PAGE) break;
+    from += PAGE;
+  }
+  return all;
+}
+
 function getRankStyle(rank) {
   if (!rank) return { color: '#8b92a8', bg: 'rgba(139,146,168,0.1)', border: 'rgba(139,146,168,0.3)' };
   const key = rank.toLowerCase();
@@ -116,6 +136,25 @@ function hideError() {
   document.getElementById('errorBox').style.display = 'none';
 }
 
+/**
+ * FIX: build a unique key for a problem that is robust to submissions
+ * that don't have a contestId (gym contests, acmsguru, out-of-contest
+ * practice, etc). Previously these all collapsed into "undefined_A",
+ * "undefined_B"... which silently merged dozens of distinct solved
+ * problems into a handful of keys and undercounted "Problems Solved".
+ */
+function problemKey(p) {
+  const base = p.contestId !== undefined && p.contestId !== null
+    ? p.contestId
+    : (p.problemsetName || 'unknown');
+  return `${base}_${p.index}`;
+}
+
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
 async function analyze() {
   const handle = document.getElementById('handleInput').value.trim();
   if (!handle) { showError('Enter a Codeforces handle.'); return; }
@@ -128,16 +167,14 @@ async function analyze() {
   document.getElementById('dashboard').style.display = 'none';
 
   try {
-    const [infoData, subsData] = await Promise.all([
+    const [infoData, subs] = await Promise.all([
       cfFetch('user.info', { handles: handle }),
-      cfFetch('user.status', { handle, from: 1, count: 10000 })
+      fetchAllSubmissions(handle)
     ]);
 
     if (infoData.status !== 'OK') throw new Error(infoData.comment || 'User not found');
-    if (subsData.status !== 'OK') throw new Error(subsData.comment || 'Could not fetch submissions');
 
     const user = infoData.result[0];
-    const subs = subsData.result;
 
     buildDashboard(user, subs, handle);
 
@@ -148,6 +185,63 @@ async function analyze() {
   } finally {
     document.getElementById('analyzeBtn').disabled = false;
   }
+}
+
+/**
+ * Build the set of unique solved problems (by problemKey) from a list
+ * of accepted submissions, mapped to the EARLIEST creationTime each
+ * was first solved at. Returns Map<key, {problem, solvedAt}>.
+ */
+function buildSolvedMap(acceptedSubs) {
+  const solved = new Map();
+  // Sort ascending by time so the first time we see a key IS the solve date.
+  const sorted = [...acceptedSubs].sort((a, b) => a.creationTimeSeconds - b.creationTimeSeconds);
+  sorted.forEach(s => {
+    const key = problemKey(s.problem);
+    if (!solved.has(key)) {
+      solved.set(key, { problem: s.problem, solvedAt: s.creationTimeSeconds });
+    }
+  });
+  return solved;
+}
+
+/**
+ * Given a sorted list of unique "days solved something" (as Date-only
+ * day-numbers, UTC), compute the max streak and the current streak
+ * (ending today/yesterday).
+ */
+function computeStreaks(daySet) {
+  const days = [...daySet].sort((a, b) => a - b);
+  if (!days.length) return { maxStreak: 0, currentStreak: 0 };
+
+  let maxStreak = 1;
+  let run = 1;
+  for (let i = 1; i < days.length; i++) {
+    if (days[i] === days[i - 1] + 1) {
+      run++;
+    } else {
+      maxStreak = Math.max(maxStreak, run);
+      run = 1;
+    }
+  }
+  maxStreak = Math.max(maxStreak, run);
+
+  // current streak: walk back from today
+  const todayDay = Math.floor(Date.now() / 86400000);
+  const daySetLookup = new Set(days);
+  let currentStreak = 0;
+  let cursor = todayDay;
+  // allow today to be "not yet solved" without breaking a streak that ended yesterday
+  if (!daySetLookup.has(cursor)) cursor -= 1;
+  while (daySetLookup.has(cursor)) {
+    currentStreak++;
+    cursor--;
+  }
+  return { maxStreak, currentStreak };
+}
+
+function dayNumber(unixSeconds) {
+  return Math.floor((unixSeconds * 1000) / 86400000);
 }
 
 function buildDashboard(user, subs, handle) {
@@ -178,15 +272,13 @@ function buildDashboard(user, subs, handle) {
   document.getElementById('maxRating').textContent = user.maxRating ? user.maxRating : '—';
   document.getElementById('maxRating').style.color = rs.color;
 
-  // stat
+  // basic stats
   const totalSubs = subs.length;
   const acceptedSubs = subs.filter(s => s.verdict === 'OK');
-  const solvedSet = new Map();
-  acceptedSubs.forEach(s => {
-    const key = s.problem.contestId + '_' + s.problem.index;
-    if (!solvedSet.has(key)) solvedSet.set(key, s.problem);
-  });
-  const uniqueSolved = [...solvedSet.values()];
+
+  // Unique solved problems, with first-solve timestamp (FIXED dedup key)
+  const solvedMap = buildSolvedMap(acceptedSubs);
+  const uniqueSolved = [...solvedMap.values()].map(v => v.problem);
   const totalSolved = uniqueSolved.length;
   const acRate = totalSubs > 0 ? ((acceptedSubs.length / totalSubs) * 100).toFixed(1) : '0.0';
 
@@ -195,6 +287,32 @@ function buildDashboard(user, subs, handle) {
   const avgDiff = ratedProblems.length
     ? Math.round(ratedProblems.reduce((s, p) => s + p.rating, 0) / ratedProblems.length)
     : 0;
+
+  // ── Live time-window stats ──
+  const nowSec = Math.floor(Date.now() / 1000);
+  const ONE_DAY = 86400;
+  const oneYearAgo = nowSec - 365 * ONE_DAY;
+  const oneMonthAgo = nowSec - 30 * ONE_DAY;
+
+  const solvedEntries = [...solvedMap.values()];
+  const solvedLastYear = solvedEntries.filter(e => e.solvedAt >= oneYearAgo).length;
+  const solvedLastMonth = solvedEntries.filter(e => e.solvedAt >= oneMonthAgo).length;
+
+  // Streaks: a "day" counts if at least one ACCEPTED submission landed on it
+  // (matches Codeforces' own streak definition — solving, not just submitting)
+  const allDays = new Set(acceptedSubs.map(s => dayNumber(s.creationTimeSeconds)));
+  const yearDays = new Set(
+    acceptedSubs.filter(s => s.creationTimeSeconds >= oneYearAgo)
+      .map(s => dayNumber(s.creationTimeSeconds))
+  );
+  const monthDays = new Set(
+    acceptedSubs.filter(s => s.creationTimeSeconds >= oneMonthAgo)
+      .map(s => dayNumber(s.creationTimeSeconds))
+  );
+
+  const allTimeStreaks = computeStreaks(allDays);
+  const yearStreaks = computeStreaks(yearDays);
+  const monthStreaks = computeStreaks(monthDays);
 
   // ── Set hero ──
   document.getElementById('totalSolvedBig').textContent = totalSolved.toLocaleString();
@@ -205,6 +323,14 @@ function buildDashboard(user, subs, handle) {
   document.getElementById('statRate').textContent = acRate + '%';
   document.getElementById('statHardest').textContent = hardest || '—';
   document.getElementById('statAvg').textContent = avgDiff || '—';
+
+  // ── Live stats (only set if the matching elements exist in the HTML) ──
+  setText('statSolvedYear', solvedLastYear.toLocaleString());
+  setText('statSolvedMonth', solvedLastMonth.toLocaleString());
+  setText('statMaxStreak', allTimeStreaks.maxStreak + (allTimeStreaks.maxStreak === 1 ? ' day' : ' days'));
+  setText('statMaxStreakYear', yearStreaks.maxStreak + (yearStreaks.maxStreak === 1 ? ' day' : ' days'));
+  setText('statMaxStreakMonth', monthStreaks.maxStreak + (monthStreaks.maxStreak === 1 ? ' day' : ' days'));
+  setText('statCurrentStreak', allTimeStreaks.currentStreak + (allTimeStreaks.currentStreak === 1 ? ' day' : ' days'));
 
   // problem distribution
   const diffBands = {};
@@ -287,7 +413,7 @@ function buildDashboard(user, subs, handle) {
     document.getElementById('strongestCount').textContent = tagEntries[0][1] + ' problems solved';
   }
 
- 
+
   const tagAttempts = {};
   acceptedSubs.forEach(s => {
     if (!s.problem.tags) return;
@@ -313,7 +439,7 @@ function buildDashboard(user, subs, handle) {
   const tagData = tagEntries.map(e => e[1]);
   const tagTotal = tagData.reduce((a,b)=>a+b,0);
 
- 
+
   const legendEl = document.getElementById('tagLegend');
   legendEl.innerHTML = '';
   tagEntries.forEach(([name, count], i) => {
