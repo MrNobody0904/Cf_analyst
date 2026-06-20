@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>// codeforces analyzer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span>CF_ANALYZER <small>// codeforces profile inspector</small></div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <span class="sig" id="apiStatusText">api: public mode</span>
+      <button class="btn ghost" id="settingsBtn" style="padding:8px 18px;font-size:11px;">⚙ API Settings</button>
+    </div>
+  </div>
+
+  <div class="settings-panel" id="settingsPanel">
+    <div class="eyebrow"><span>00 — api activation &amp; settings</span></div>
+    <div class="settings-body">
+      <p class="settings-copy">
+        This app calls the public Codeforces API by default — no setup needed for anyone.
+        If you're sharing this app with a team or expect many people to use it at once, the shared
+        public quota can get rate-limited. Activate your own Codeforces API key below to get a
+        dedicated, signed quota. Keys are generated for free at
+        <a href="https://codeforces.com/settings/api" target="_blank" rel="noopener">codeforces.com/settings/api</a>
+        and are stored only in this browser — never sent anywhere except codeforces.com.
+      </p>
+      <div class="settings-grid">
+        <div class="field">
+          <label for="apiKeyInput">API Key</label>
+          <input type="text" id="apiKeyInput" placeholder="e.g. 0123456789abcdef0123456789abcdef01234567" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="apiSecretInput">API Secret</label>
+          <input type="password" id="apiSecretInput" placeholder="your secret key" autocomplete="off">
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:14px;">
+        <button class="btn" id="saveApiBtn">Activate</button>
+        <button class="btn ghost" id="testApiBtn">Test connection</button>
+        <button class="btn ghost" id="clearApiBtn">Clear &amp; use public mode</button>
+        <span class="hint" id="apiTestResult" style="margin-top:0;"></span>
+      </div>
+      <div class="hint">Multiple people on different browsers/devices can each activate their own key here — every user's app instance keeps its own local, independent quota. No shared backend, no central account.</div>
+    </div>
+  </div>
+
+  <div id="search-section">
+    <div class="eyebrow"><span>01 — lookup</span></div>
+    <div class="search-row">
+      <div class="search-box">
+        <span class="prefix">cf/</span>
+        <input id="handleInput" type="text" placeholder="enter a codeforces handle, e.g. tourist" autocomplete="off">
+      </div>
+      <button class="btn" id="analyzeBtn">Analyze</button>
+    </div>
+    <div class="hint">Pulls live data directly from the official Codeforces API. Nothing is stored.</div>
+    <div class="loader" id="loader"><div class="spin"></div><span id="loaderText">fetching profile…</span></div>
+    <div class="error-box" id="errorBox"></div>
+  </div>
+
+  <div id="content">
+
+    <div class="profile-head">
+      <div class="profile-id">
+        <img class="avatar" id="avatar" src="" alt="avatar">
+        <div>
+          <h1 id="handleName">—</h1>
+          <div class="sub" id="profileSub">—</div>
+        </div>
+      </div>
+      <div class="rank-pill" id="rankPill">—</div>
+    </div>
+
+    <section>
+      <div class="eyebrow"><span>02 — overview</span><span class="n" id="statCount"></span></div>
+      <div class="stat-grid" id="statGrid"></div>
+    </section>
+
+    <section>
+      <div class="eyebrow"><span>03 — rating history</span></div>
+      <div class="panel">
+        <h3>Rating over time</h3>
+        <div class="chart-box"><canvas id="ratingChart"></canvas></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="eyebrow"><span>04 — solved by difficulty</span></div>
+      <div class="grid2">
+        <div>
+          <h3 style="margin:0 0 14px;font-family:'Space Grotesk',sans-serif;font-size:15px;text-transform:uppercase;letter-spacing:0.04em;">Difficulty distribution</h3>
+          <div class="chart-box"><canvas id="difficultyChart"></canvas></div>
+        </div>
+        <div>
+          <h3 style="margin:0 0 14px;font-family:'Space Grotesk',sans-serif;font-size:15px;text-transform:uppercase;letter-spacing:0.04em;">Verdict breakdown</h3>
+          <div class="chart-box"><canvas id="verdictChart"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="eyebrow"><span>05 — tag analysis</span></div>
+      <div class="cols3">
+        <div>
+          <h3 style="font-family:'Space Grotesk',sans-serif;font-size:13px;text-transform:uppercase;margin:0 0 10px;">Most solved tags</h3>
+          <ul class="taglist" id="topTags"></ul>
+        </div>
+        <div>
+          <h3 style="font-family:'Space Grotesk',sans-serif;font-size:13px;text-transform:uppercase;margin:0 0 10px;">Strong tags <span class="tag-ok">high success</span></h3>
+          <ul class="taglist" id="strongTags"></ul>
+        </div>
+        <div>
+          <h3 style="font-family:'Space Grotesk',sans-serif;font-size:13px;text-transform:uppercase;margin:0 0 10px;">Weak tags <span class="tag-ok">least solved</span></h3>
+          <ul class="taglist" id="weakTags"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="eyebrow"><span>06 — solving streaks</span></div>
+      <div class="streak-row">
+        <div class="streak-box"><div class="v" id="curStreak">0</div><div class="l">current streak (days)</div></div>
+        <div class="streak-box"><div class="v" id="maxStreak">0</div><div class="l">longest streak (days)</div></div>
+        <div class="streak-box"><div class="v" id="avgRating">0</div><div class="l">avg. problem rating solved</div></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="eyebrow"><span>07 — progress over time</span></div>
+      <div class="grid2">
+        <div>
+          <h3 style="margin:0 0 14px;font-family:'Space Grotesk',sans-serif;font-size:15px;text-transform:uppercase;letter-spacing:0.04em;">Monthly solved (last 12 months)</h3>
+          <div class="chart-box small"><canvas id="monthlyChart"></canvas></div>
+        </div>
+        <div>
+          <h3 style="margin:0 0 14px;font-family:'Space Grotesk',sans-serif;font-size:15px;text-transform:uppercase;letter-spacing:0.04em;">Yearly solved</h3>
+          <div class="chart-box small"><canvas id="yearlyChart"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="eyebrow"><span>08 — contest history</span></div>
+      <div class="panel">
+        <div class="scrollx">
+          <table class="cf-table">
+            <thead><tr><th>#</th><th>Contest</th><th>Rank</th><th>Rating</th><th>Δ</th></tr></thead>
+            <tbody id="contestTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="eyebrow"><span>09 — recent activity</span></div>
+      <div class="panel">
+        <div class="scrollx" id="recentActivity"></div>
+      </div>
+    </section>
+
+    <footer class="actions">
+      <div class="sig">Generated for <b id="footHandle">—</b> · data via codeforces.com/api</div>
+      <div class="btn-row" style="margin-top:0;">
+        <button class="btn ghost" id="exportBtn">Export PDF</button>
+        <button class="btn ghost" id="newSearchBtn">New search</button>
+      </div>
+    </footer>
+
+  </div>
+
+</div>
+
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
