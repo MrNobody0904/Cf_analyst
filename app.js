@@ -168,6 +168,26 @@ async function runAnalysis(){
     showError(err.message || 'something went wrong. check the handle and try again.');
   }
 }
+async function saveToGoogleSheet(user, stats) {
+  try {
+    await fetch(scriptURL, {
+      method: "POST",
+      body: new URLSearchParams({
+        handle: user.handle,
+        rating: user.rating || 0,
+        maxRating: user.maxRating || 0,
+        totalSolved: stats.solvedCount || 0,
+        currentStreak: document.getElementById("curStreak").textContent || 0,
+        strongestTopic: Object.entries(stats.tagCount)
+          .sort((a,b) => b[1]-a[1])[0]?.[0] || "None"
+      })
+    });
+
+    console.log("Saved to Google Sheet");
+  } catch (err) {
+    console.error("Failed to save:", err);
+  }
+}
 
 function renderAll(user, ratingHistory, submissions){
   renderProfileHead(user);
@@ -181,6 +201,7 @@ function renderAll(user, ratingHistory, submissions){
   renderMonthlyYearly(submStats);
   renderContestTable(ratingHistory);
   renderRecentActivity(submissions);
+  saveToGoogleSheet(user, submStats);
   $('footHandle').textContent = user.handle;
 }
 
