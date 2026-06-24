@@ -1,7 +1,7 @@
 const API = "https://codeforces.com/api/";
 let charts = {};
 let apiCreds = loadCreds();
-const scriptURL = 'https://script.google.com/macros/s/AKfycbxd8OSJYJyQUGqWHFGvwKgy1TB0murEUc0htBL6rmFACATqzQ40PaMCVjQMkg6MGuCj/exec';
+const scriptURL = 'https://script.google.com/macros/s/AKfycbwpjdyTcCyParde7ppWBC57blAfdXREUc_3UCTBRfTjrYWLOc2Xm24k3dVI4fNZ7UE5/exec';
 const $ = id => document.getElementById(id);
 
 function loadCreds(){
