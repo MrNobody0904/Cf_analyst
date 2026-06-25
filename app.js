@@ -41,7 +41,7 @@ function randString(len){
   for(let i=0;i<len;i++) out += chars[Math.floor(Math.random()*chars.length)];
   return out;
 }
-// Builds a signed query string per Codeforces API auth spec when credentials are active.
+
 async function buildUrl(methodName, params){
   if(!apiCreds || !apiCreds.key || !apiCreds.secret){
     const qs = new URLSearchParams(params).toString();
@@ -223,13 +223,12 @@ function computeSubmissionStats(subs){
   const tagCount = {};
   const tagAttempt = {};
   const difficultyBuckets = {};
-  const dateSet = new Set(); // days with AC
-  const monthMap = {}; // 'YYYY-MM' -> count (unique solved)
+  const dateSet = new Set(); 
+  const monthMap = {}; 
   const yearMap = {};
   const tagSolvedDates = {};
 
-  // need per-tag attempts (all submissions of problems with that tag, unique problem attempted)
-  const attemptedProblemTags = {};
+  
 
   for(const s of subs){
     const verdict = s.verdict || 'UNKNOWN';
@@ -274,7 +273,6 @@ function computeSubmissionStats(subs){
     ? Math.round(solvedProblems.filter(p=>p.rating).reduce((a,p)=>a+p.rating,0) / solvedProblems.filter(p=>p.rating).length)
     : 0;
 
-  // tag success rate = solved problems with tag / attempted unique problems with tag
   const tagSuccess = {};
   for(const t in tagCount){
     const attempted = attemptedProblemTags[t] ? attemptedProblemTags[t].size : tagCount[t];
@@ -433,12 +431,11 @@ function renderStreaks(st){
     longest = Math.max(longest, run);
     prev = day;
   }
-  // current streak: count back from today/yesterday
   const daySet = st.dateSet;
   let cur = 0;
   let cursor = new Date();
   cursor.setHours(0,0,0,0);
-  // allow today not yet solved, start check from today, if missing try yesterday start
+
   let key = cursor.toISOString().slice(0,10);
   if(!daySet.has(key)){
     cursor.setDate(cursor.getDate()-1);
